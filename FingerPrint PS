@@ -1,0 +1,69 @@
+# Fingerprinting Script
+
+# Function to retrieve system information
+function Get-SystemInfo {
+    $systemInfo = @{}
+    
+    $systemInfo["ComputerName"] = $env:COMPUTERNAME
+    $systemInfo["UserName"] = $env:USERNAME
+    $systemInfo["OS"] = (Get-WmiObject Win32_OperatingSystem).Caption
+    $systemInfo["Processor"] = (Get-WmiObject Win32_Processor).Name
+    $systemInfo["Memory"] = "{0:N2} GB" -f ((Get-WmiObject -Class Win32_ComputerSystem).TotalPhysicalMemory / 1GB)
+    
+    $systemInfo
+}
+
+# Function to retrieve network information
+function Get-NetworkInfo {
+    $networkInfo = @{}
+    
+    $networkInfo["IPAddress"] = (Get-NetIPAddress | Where-Object {$_.AddressFamily -eq "IPv4" -and $_.InterfaceAlias -ne "Loopback"}).IPAddress
+    $networkInfo["MACAddress"] = (Get-NetAdapter | Where-Object {$_.Status -eq "Up"}).MacAddress
+    $networkInfo["DefaultGateway"] = (Get-NetRoute | Where-Object {$_.DestinationPrefix -eq "0.0.0.0/0"}).NextHop
+    
+    $networkInfo
+}
+
+# Function to retrieve installed software information
+function Get-InstalledSoftware {
+    $softwareList = Get-WmiObject -Class Win32_Product | Select-Object -Property Name, Version
+    
+    $softwareList
+}
+
+# Function to retrieve running processes
+function Get-RunningProcesses {
+    $processList = Get-Process | Select-Object -Property Name, Path, CommandLine
+    
+    $processList
+}
+
+# Function to retrieve open network connections
+function Get-OpenConnections {
+    $connectionList = Get-NetTCPConnection | Where-Object {$_.State -eq "Established"} | Select-Object -Property LocalAddress, LocalPort, RemoteAddress, RemotePort
+    
+    $connectionList
+}
+
+# Main script
+$systemInfo = Get-SystemInfo
+$networkInfo = Get-NetworkInfo
+$installedSoftware = Get-InstalledSoftware
+$runningProcesses = Get-RunningProcesses
+$openConnections = Get-OpenConnections
+
+# Output the collected information
+Write-Host "System Information:"
+$systemInfo.GetEnumerator() | ForEach-Object { Write-Host "$($_.Key): $($_.Value)" }
+
+Write-Host "`nNetwork Information:"
+$networkInfo.GetEnumerator() | ForEach-Object { Write-Host "$($_.Key): $($_.Value)" }
+
+Write-Host "`nInstalled Software:"
+$installedSoftware | ForEach-Object { Write-Host "$($_.Name), Version: $($_.Version)" }
+
+Write-Host "`nRunning Processes:"
+$runningProcesses | ForEach-Object { Write-Host "Name: $($_.Name), Path: $($_.Path), Command Line: $($_.CommandLine)" }
+
+Write-Host "`nOpen Network Connections:"
+$openConnections | ForEach-Object { Write-Host "Local Address: $($_.LocalAddress), Local Port: $($_.LocalPort), Remote Address: $($_.RemoteAddress), Remote Port: $($_.RemotePort)" }
